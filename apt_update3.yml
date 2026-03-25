@@ -1,0 +1,40 @@
+---
+- name: Full patching (no reboot)
+  hosts: all_servers
+  become: yes
+
+  tasks:
+
+    - name: Show start message
+      debug:
+        msg: "Server: {{ inventory_hostname }} | Starting patching"
+
+    # 1️⃣ Update package list
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    # 2️⃣ Install unattended-upgrades (for security patches)
+    - name: Install unattended-upgrades
+      apt:
+        name: unattended-upgrades
+        state: present
+
+    # 3️⃣ Upgrade all packages (includes security updates)
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+      register: upgrade_result
+
+    # 4️⃣ Run security updates explicitly
+    - name: Run security updates
+      command: unattended-upgrade -d
+      register: security_result
+
+    # 5️⃣ Final status
+    - name: Show final status
+      debug:
+        msg: |
+          Server: {{ inventory_hostname }}
+          Upgrade changed: {{ upgrade_result.changed }}
+          Security output: {{ security_result.stdout | default('No output') }}

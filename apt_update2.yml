@@ -1,0 +1,55 @@
+---
+- name: Update apt on all servers
+  hosts: all_servers
+  become: yes
+  ignore_unreachable: yes
+  gather_facts: yes
+  vars:
+    teams_webhook: "https://everventin.webhook.office.com/webhookb2/460e5099-caac-4015-98eb-455bd95e4865@61c10e68-8659-441e-88a8-393e338f2e29/IncomingWebhook/4afea02cc4e241bf869a22f6a74fcfbc/98b8d3ef-0a76-4562-b055-9fe45abb4c0d/V2s4AL_SuMMoih91Le5EFP5Gx8BfGN3LmsX8VzspY57Rg1"
+  tasks:
+    - name: Run apt update
+      apt:
+        update_cache: yes
+        cache_valid_time: 0
+      register: apt_result
+      ignore_errors: yes
+
+    - name: Send Teams warning - apt update failed
+      uri:
+        url: "{{ teams_webhook }}"
+        method: POST
+        body_format: json
+        headers:
+          Content-Type: "application/json"
+        body:
+          type: "message"
+          attachments:
+            - contentType: "application/vnd.microsoft.card.adaptive"
+              content:
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json"
+                type: "AdaptiveCard"
+                version: "1.4"
+                body:
+                  - type: "TextBlock"
+                    text: "⚠️ Warning - APT Update Failed"
+                    weight: "Bolder"
+                    size: "Large"
+                    color: "Warning"
+                  - type: "FactSet"
+                    facts:
+                      - title: "Client"
+                        value: "{{ client_name | default('N/A') }}"
+                      - title: "Server"
+                        value: "{{ inventory_hostname }}"
+                      - title: "IP Address"
+                        value: "{{ ansible_host }}"
+                      - title: "Status"
+                        value: "⚠️ Warning - Failed"
+                      - title: "Time"
+                        value: "{{ ansible_date_time.iso8601 | default('N/A') }}"
+                      - title: "Error"
+                        value: "{{ apt_result.msg | default('apt update failed') }}"
+        status_code: [200, 202]
+      delegate_to: localhost
+      become: no
+      when: apt_result is failed

@@ -1,0 +1,26 @@
+---
+- name: Update apt on all servers
+  hosts: all_servers
+  become: yes
+
+  tasks:
+
+    - name: Show start message
+      debug:
+        msg: "Client: {{ client_name }} | Server: {{ inventory_hostname }} | Starting apt update"
+
+    - name: Run apt update && apt upgrade
+      apt:
+        update_cache: yes
+        upgrade: dist
+      register: apt_result
+
+    - name: Show success message
+      debug:
+        msg: "Client: {{ client_name }} | Server: {{ inventory_hostname }} | Status: Success"
+      when: apt_result is succeeded
+
+    - name: Show failure message
+      debug:
+        msg: "Client: {{ client_name }} | Server: {{ inventory_hostname }} | Status: Failed"
+      when: apt_result is failed
