@@ -1,0 +1,41 @@
+---
+- name: Update apt on all servers
+  hosts: all_servers
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Show start message
+      debug:
+        msg: "Client: {{ client_name }} | Server: {{ inventory_hostname }} | Starting apt update"
+
+    - name: Run apt update && apt upgrade
+      apt:
+        update_cache: yes
+        upgrade: dist
+      register: apt_result
+      ignore_errors: yes
+
+    - name: Show apt result
+      debug:
+        msg: "Client: {{ client_name }} | Server: {{ inventory_hostname }} | Apt Upgrade: {{ 'Success' if apt_result is succeeded else 'Failed' }}"
+
+    - name: Get PM2 path and save
+      shell: |
+        export NVM_DIR="/home/{{ pm2_user }}/.nvm"
+        source "$NVM_DIR/nvm.sh"
+        PM2=$(which pm2)
+        if [ -z "$PM2" ]; then
+          echo "PM2_STATUS: NOT_FOUND"
+          exit 0
+        fi
+        $PM2 save && echo "PM2_STATUS: SUCCESS" || echo "PM2_STATUS: FAILED"
+      args:
+        executable: /bin/bash
+      become: yes
+      become_user: "{{ pm2_user }}"
+      register: pm2_result
+      ignore_errors: yes
+
+    - name: Show PM2 result
+      debug:
+        msg: "Client: {{ client_name }} | Server: {{ inventory_hostname }} | PM2 Save: {{ 'Success' if 'PM2_STATUS: SUCCESS' in pm2_result.stdout else 'Not Installed' if 'PM2_STATUS: NOT_FOUND' in pm2_result.stdout else 'Failed' }}"
