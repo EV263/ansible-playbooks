@@ -9,6 +9,15 @@
       debug:
         msg: "Server: {{ inventory_hostname }} | Starting patching"
 
+    # 0️⃣ Force apt to use IPv4 (fixes security.ubuntu.com unreachable over IPv6)
+    - name: Force apt to use IPv4
+      copy:
+        dest: /etc/apt/apt.conf.d/99force-ipv4
+        content: 'Acquire::ForceIPv4 "true";'
+        owner: root
+        group: root
+        mode: '0644'
+
     # 1️⃣ Update package list
     - name: Update apt cache
       apt:
