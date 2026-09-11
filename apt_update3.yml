@@ -1,12 +1,7 @@
+---
 - name: Full patching (no reboot)
   hosts: all_servers
   become: yes
-
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
-
-  environment:
-    DEBIAN_FRONTEND: noninteractive
 
   tasks:
 
@@ -14,19 +9,10 @@
       debug:
         msg: "Server: {{ inventory_hostname }} | Starting patching"
 
-    # 0️⃣ Wait for any existing apt/dpkg lock to clear
-    - name: Wait for apt lock to be released
-      shell: |
-        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
-          sleep 2
-        done
-      changed_when: false
-
     # 1️⃣ Update package list
     - name: Update apt cache
       apt:
         update_cache: yes
-        cache_valid_time: 3600
 
     # 2️⃣ Install unattended-upgrades (for security patches)
     - name: Install unattended-upgrades
@@ -34,27 +20,16 @@
         name: unattended-upgrades
         state: present
 
-    # 2️⃣.5 Prevent needrestart interactive prompt (Ubuntu 20.04+)
-    - name: Set needrestart to auto-restart mode (non-interactive)
-      lineinfile:
-        path: /etc/needrestart/needrestart.conf
-        regexp: "^#?\\$nrconf\\{restart\\}"
-        line: "$nrconf{restart} = 'a';"
-        create: yes
-      ignore_errors: yes
-
-    # 3️⃣ Upgrade all packages (includes security updates)
+    # 3️⃣ Upgrade all packages (includes security updates + phased updates)
     - name: Upgrade all packages
-      apt:
-        upgrade: dist
-        force_apt_get: yes
+      command: apt-get dist-upgrade -y -o APT::Get::Always-Include-Phased-Updates=true
       register: upgrade_result
+      changed_when: "'0 upgraded, 0 newly installed' not in upgrade_result.stdout"
 
     # 4️⃣ Run security updates explicitly
     - name: Run security updates
       command: unattended-upgrade -d
       register: security_result
-      changed_when: "'Packages that will be upgraded' in security_result.stdout"
 
     # 5️⃣ Final status
     - name: Show final status
