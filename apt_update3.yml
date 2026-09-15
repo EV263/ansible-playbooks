@@ -1,49 +1,44 @@
----
-- name: Full patching (no reboot)
-  hosts: all_servers
-  become: yes
+name: Full patching (no reboot)
+hosts: all_servers
+become: yes
 
-  tasks:
+tasks:
 
-    - name: Show start message
-      debug:
-        msg: "Server: {{ inventory_hostname }} | Starting patching"
+name: Show start message
+debug:
+  msg: "Server: {{ inventory_hostname }} | Starting patching"
 
-    # 0️⃣ Force apt to use IPv4 (fixes security.ubuntu.com unreachable over IPv6)
-    - name: Force apt to use IPv4
-      copy:
-        dest: /etc/apt/apt.conf.d/99force-ipv4
-        content: 'Acquire::ForceIPv4 "true";'
-        owner: root
-        group: root
-        mode: '0644'
+# 1️⃣ Update package list
 
-    # 1️⃣ Update package list
-    - name: Update apt cache
-      apt:
-        update_cache: yes
+name: Update apt cache
+apt:
+  update_cache: yes
 
-    # 2️⃣ Install unattended-upgrades (for security patches)
-    - name: Install unattended-upgrades
-      apt:
-        name: unattended-upgrades
-        state: present
+# 2️⃣ Install unattended-upgrades (for security patches)
 
-    # 3️⃣ Upgrade all packages (includes security updates + phased updates)
-    - name: Upgrade all packages
-      command: apt-get dist-upgrade -y -o APT::Get::Always-Include-Phased-Updates=true
-      register: upgrade_result
-      changed_when: "'0 upgraded, 0 newly installed' not in upgrade_result.stdout"
+name: Install unattended-upgrades
+apt:
+  name: unattended-upgrades
+  state: present
 
-    # 4️⃣ Run security updates explicitly
-    - name: Run security updates
-      command: unattended-upgrade -d
-      register: security_result
+# 3️⃣ Upgrade all packages (includes security updates)
 
-    # 5️⃣ Final status
-    - name: Show final status
-      debug:
-        msg: |
-          Server: {{ inventory_hostname }}
-          Upgrade changed: {{ upgrade_result.changed }}
-          Security output: {{ security_result.stdout | default('No output') }}
+name: Upgrade all packages
+apt:
+  upgrade: dist
+register: upgrade_result
+
+# 4️⃣ Run security updates explicitly
+
+name: Run security updates
+command: unattended-upgrade -d
+register: security_result
+
+# 5️⃣ Final status
+
+name: Show final status
+debug:
+  msg: |
+    Server: {{ inventory_hostname }}
+    Upgrade changed: {{ upgrade_result.changed }}
+    Security output: {{ security_result.stdout | default('No output') }}
